@@ -315,27 +315,80 @@ GitHub와 Vercel로 배포할 수 있게 만들어줘.
   ]
 };
 
+// BEGIN_SHARED_DATA
+const SHARED_DATA = null;
+// END_SHARED_DATA
+const sourceURL = document.currentScript?.src || 'script.js';
+const baseData = SHARED_DATA || { version: 1, revision: 'original', groups: [
+  { id: 'free', title: '자유양식', description: '내 아이디어로 시작하기', steps: templates.free },
+  { id: 'night', title: '야간배송', description: '기본 이야기를 바탕으로 만들기', steps: templates.night }
+] };
+const STORAGE_KEY = 'prompt-kit-editor-v1';
 const $ = id => document.getElementById(id);
-const state = { mode: 'free', steps: { free: 0, night: 0 } };
+let groups = structuredClone(baseData.groups), storageAvailable = true;
+function validateData(data) {
+  if (data?.version !== 1 || !Array.isArray(data.groups) || data.groups.length < 1 || data.groups.length > 30) throw new Error('양식은 1~30개여야 합니다.');
+  const ids = new Set();
+  for (const group of data.groups) {
+    if (typeof group.id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(group.id) || ['__proto__','constructor','prototype'].includes(group.id) || ids.has(group.id)) throw new Error('양식 ID가 올바르지 않습니다.');
+    ids.add(group.id);
+    if (typeof group.title !== 'string' || !group.title.trim() || group.title.length > 100 || typeof group.description !== 'string' || group.description.length > 500 || !Array.isArray(group.steps) || group.steps.length < 1 || group.steps.length > 100) throw new Error('양식 제목, 설명 또는 단계 수를 확인하세요.');
+    for (const step of group.steps) {
+      for (const [key, limit] of [['title',100],['description',500],['prompt',30000],['check',1000]]) {
+        if (typeof step[key] !== 'string' || step[key].length > limit || (['title','prompt'].includes(key) && !step[key].trim())) throw new Error('단계 제목과 프롬프트는 필수이며 글자 수 제한을 지켜야 합니다.');
+      }
+    }
+  }
+  return data;
+}
+try {
+  const local = JSON.parse(localStorage.getItem(STORAGE_KEY));
+  if (local && local.baseRevision === baseData.revision) groups = validateData(local).groups;
+} catch (_) { storageAvailable = false; }
+const state = { mode: groups[0].id, steps: Object.create(null) };
+let editorContext = null;
+function currentGroup() { return groups.find(group => group.id === state.mode); }
+function persist() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({version:1, baseRevision:baseData.revision, groups})); storageAvailable = true; }
+  catch (_) { storageAvailable = false; }
+  $('storageNotice').textContent = storageAvailable
+    ? '편집 내용은 이 브라우저에 저장됩니다. 학생들에게도 반영하려면 ‘공유용 script.js 받기’로 받은 파일을 GitHub의 script.js와 교체하세요. 서버에 자동으로 저장되지는 않습니다.'
+    : '브라우저 저장을 사용할 수 없습니다. 창을 닫기 전에 ‘백업 저장’ 또는 ‘공유용 script.js 받기’로 변경 내용을 보관하세요.';
+}
 let toastTimer, labelTimer;
-function currentSteps() { return templates[state.mode]; }
+function currentSteps() { return currentGroup().steps; }
 function render() {
+  state.steps[state.mode] = Math.max(0, Math.min(state.steps[state.mode] || 0, currentSteps().length - 1));
   const steps = currentSteps(), index = state.steps[state.mode], step = steps[index];
-  document.querySelectorAll('[data-mode]').forEach(button => {
-    const active = button.dataset.mode === state.mode;
-    button.classList.toggle('active', active);
-    button.setAttribute('aria-selected', String(active)); button.tabIndex = active ? 0 : -1;
+  $('modeTabs').replaceChildren();
+  groups.forEach(group => {
+    const active = group.id === state.mode, button = document.createElement('button');
+    button.className = `mode-tab${active ? ' active' : ''}`; button.id = `tab-${group.id}`;
+    button.setAttribute('role','tab'); button.setAttribute('aria-controls','promptPanel'); button.setAttribute('aria-selected',String(active)); button.tabIndex = active ? 0 : -1;
+    button.innerHTML = '<span class="mode-symbol" aria-hidden="true"></span><span><strong></strong><small></small></span><span class="mode-count"></span>';
+    button.querySelector('.mode-symbol').textContent = group.id === 'night' ? '☾' : '✳';
+    button.querySelector('strong').textContent = group.title; button.querySelector('small').textContent = group.description;
+    button.querySelector('.mode-count').textContent = `${group.steps.length}단계`;
+    button.addEventListener('click', () => { state.mode = group.id; render(); $(`tab-${group.id}`).focus(); });
+    button.addEventListener('keydown', event => {
+      if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+      event.preventDefault(); const i = groups.findIndex(item => item.id === group.id);
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? groups.length - 1 : (i + (event.key === 'ArrowRight' ? 1 : -1) + groups.length) % groups.length;
+      state.mode = groups[next].id; render(); $(`tab-${state.mode}`).focus();
+    });
+    $('modeTabs').appendChild(button);
   });
   $('promptPanel').setAttribute('aria-labelledby', `tab-${state.mode}`);
   $('stepCount').textContent = String(steps.length).padStart(2, '0');
   const navigation = $('stepList'); navigation.replaceChildren();
   steps.forEach((item, i) => {
     const button = document.createElement('button'); button.className = `step-button${i === index ? ' active' : ''}`;
-    button.innerHTML = `<span class="step-number">${String(i + 1).padStart(2, '0')}</span><span>${item.title}</span><span class="step-arrow" aria-hidden="true">↗</span>`;
+    button.innerHTML = `<span class="step-number">${String(i + 1).padStart(2, '0')}</span><span class="step-name"></span><span class="step-arrow" aria-hidden="true">↗</span>`;
+    button.querySelector('.step-name').textContent = item.title;
     if (i === index) button.setAttribute('aria-current', 'step');
     button.addEventListener('click', () => changeStep(i)); navigation.appendChild(button);
   });
-  $('stepEyebrow').textContent = `STEP ${String(index + 1).padStart(2, '0')} / ${state.mode === 'free' ? 'FREE PROJECT' : 'NIGHT DELIVERY'}`;
+  $('stepEyebrow').textContent = `STEP ${String(index + 1).padStart(2, '0')} / ${currentGroup().title}`;
   $('stepTitle').textContent = step.title; $('stepDescription').textContent = step.description;
   $('promptText').value = step.prompt; $('promptText').scrollTop = 0;
   $('checkpoint').textContent = step.check; $('pageNumber').textContent = `${index + 1} / ${steps.length}`;
@@ -384,12 +437,81 @@ $('copyAllButton').addEventListener('click', async () => {
 });
 $('prevButton').addEventListener('click', () => changeStep(state.steps[state.mode] - 1));
 $('nextButton').addEventListener('click', () => changeStep(state.steps[state.mode] + 1));
-document.querySelectorAll('[data-mode]').forEach(button => {
-  button.addEventListener('click', () => { state.mode = button.dataset.mode; render(); });
-  button.addEventListener('keydown', event => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    event.preventDefault(); state.mode = event.key === 'Home' ? 'free' : event.key === 'End' ? 'night' : state.mode === 'free' ? 'night' : 'free';
-    render(); $(`tab-${state.mode}`).focus();
-  });
+function openEditor(kind, adding) {
+  editorContext = {kind, adding, groupId:state.mode, index:state.steps[state.mode]};
+  const item = adding ? {} : kind === 'group' ? currentGroup() : currentSteps()[state.steps[state.mode]];
+  $('editorTitle').textContent = `${kind === 'group' ? '양식' : '단계'} ${adding ? '추가' : '수정'}`;
+  $('editTitle').value = item.title || ''; $('editDescription').value = item.description || '';
+  $('editPrompt').value = item.prompt || ''; $('editCheck').value = item.check || '';
+  $('stepFields').hidden = kind === 'group'; $('editPrompt').required = kind === 'step';
+  $('deleteItem').hidden = adding; $('editorError').textContent = '';
+  $('editor').showModal(); $('editTitle').focus();
+}
+$('addGroup').addEventListener('click', () => openEditor('group',true));
+$('editGroup').addEventListener('click', () => openEditor('group',false));
+$('addStep').addEventListener('click', () => openEditor('step',true));
+$('editStep').addEventListener('click', () => openEditor('step',false));
+for (const id of ['closeEditor','cancelEditor']) $(id).addEventListener('click', () => $('editor').close());
+$('editorForm').addEventListener('submit', event => {
+  event.preventDefault();
+  const title = $('editTitle').value.trim(), description = $('editDescription').value.trim();
+  if (!title) { $('editorError').textContent = '제목을 입력하세요.'; return; }
+  const group = groups.find(item => item.id === editorContext.groupId);
+  if (editorContext.kind === 'group') {
+    if (editorContext.adding) {
+      if (groups.length >= 30) { $('editorError').textContent = '양식은 최대 30개입니다.'; return; }
+      const id = `group-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+      groups.push({id,title,description,steps:[{title:'첫 번째 단계',description:'현재 단계 수정 버튼으로 내용을 작성하세요.',prompt:'[학생 작성]',check:''}]}); state.mode = id;
+    } else { group.title = title; group.description = description; }
+  } else {
+    const prompt = $('editPrompt').value.trim(), check = $('editCheck').value.trim();
+    if (!prompt) { $('editorError').textContent = '프롬프트를 입력하세요.'; return; }
+    const step = {title,description,prompt,check};
+    if (editorContext.adding) {
+      if (group.steps.length >= 100) { $('editorError').textContent = '단계는 최대 100개입니다.'; return; }
+      group.steps.push(step); state.steps[state.mode] = group.steps.length - 1;
+    } else group.steps[editorContext.index] = step;
+  }
+  persist(); render(); $('editor').close(); notify(storageAvailable ? '저장했어요. 학생들에게 공유하려면 공유용 script.js를 받아 교체하세요.' : '화면에 반영했어요. 저장이 제한되어 파일 백업이 필요합니다.');
+});
+$('deleteItem').addEventListener('click', () => {
+  const group = currentGroup(), deletingGroup = editorContext.kind === 'group';
+  if ((deletingGroup && groups.length === 1) || (!deletingGroup && group.steps.length === 1)) { $('editorError').textContent = '양식과 단계는 각각 최소 하나가 필요합니다.'; return; }
+  if (!window.confirm(deletingGroup ? '이 양식과 안의 모든 단계를 삭제할까요? 필요한 내용은 먼저 백업하세요.' : '현재 단계를 삭제할까요?')) return;
+  if (deletingGroup) { groups = groups.filter(item => item.id !== state.mode); state.mode = groups[0].id; }
+  else { group.steps.splice(editorContext.index,1); state.steps[state.mode] = Math.max(0,editorContext.index-1); }
+  persist(); render(); $('editor').close(); notify('삭제했어요.');
+});
+function download(filename, contents, type) {
+  const blob = new Blob([contents],{type}), url = URL.createObjectURL(blob), link = document.createElement('a');
+  link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url),1000);
+}
+function sharedData() { return {version:1,revision:`shared-${Date.now()}`,groups}; }
+$('exportData').addEventListener('click', () => { download('prompt-kit-backup.json',JSON.stringify(sharedData(),null,2),'application/json;charset=utf-8'); notify('백업 파일을 저장했어요. 다른 브라우저에서 불러올 수 있습니다.'); });
+$('importData').addEventListener('click', () => $('importFile').click());
+$('importFile').addEventListener('change', async event => {
+  const file = event.target.files[0]; if (!file) return;
+  try {
+    if (file.size > 5*1024*1024) throw new Error('5MB 이하의 백업 파일을 선택하세요.');
+    const incoming = validateData(JSON.parse(await file.text()));
+    if (!window.confirm('현재 양식을 백업 파일의 내용으로 교체할까요? 기존 내용은 먼저 백업해두세요.')) return;
+    groups = structuredClone(incoming.groups); state.mode = groups[0].id; state.steps = Object.create(null);
+    persist(); render(); notify('백업을 불러왔어요.');
+  } catch (error) { notify(error instanceof SyntaxError ? 'JSON 형식의 백업 파일이 아닙니다.' : error.message); }
+  finally { event.target.value = ''; }
+});
+$('exportScript').addEventListener('click', async () => {
+  const button = $('exportScript'); button.disabled = true;
+  try {
+    const response = await fetch(sourceURL,{cache:'no-store'});
+    if (!response.ok) throw new Error('스크립트 파일을 읽을 수 없습니다.');
+    const source = await response.text(), marker = /^\/\/ BEGIN_SHARED_DATA\r?\n[\s\S]*?^\/\/ END_SHARED_DATA/m;
+    if (!marker.test(source)) throw new Error('공유 데이터 영역을 찾지 못했습니다.');
+    const replacement = `// BEGIN_SHARED_DATA\nconst SHARED_DATA = ${JSON.stringify(sharedData())};\n// END_SHARED_DATA`;
+    download('script.js',source.replace(marker,() => replacement),'text/javascript;charset=utf-8');
+    notify('받은 script.js로 GitHub 파일을 교체하면 모두에게 반영됩니다.');
+  } catch (_) { notify('공유 파일을 만들 수 없어요. 배포된 웹사이트에서 다시 시도하거나 백업 저장을 사용하세요.'); }
+  finally { button.disabled = false; }
 });
 render();
+if (!storageAvailable) $('storageNotice').textContent = '브라우저의 저장 공간에 접근하지 못했거나 저장 기록이 손상됐습니다. 편집 후 파일로 백업하세요.';
