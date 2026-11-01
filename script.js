@@ -129,23 +129,6 @@ GitHub와 Vercel로 배포할 수 있는 구조로 만들어줘.
 그림과 실제 이동·충돌 위치가 맞도록 해줘.
 필요한 파일만 읽고 수정해줘.`
     },
-    {
-      title: '친구의 의견으로 개선하기', description: '조작법만 알려주고 친구가 플레이하는 모습을 살펴보세요.',
-      check: '무엇을 왜 바꿨는지, 바꾼 뒤 어떤 점이 달라졌는지 발표해보세요.',
-      prompt: `친구가 내 게임을 플레이한 결과야.
-
-- 친구가 재미있어한 부분: [학생 작성]
-- 친구가 이해하지 못한 부분: [학생 작성]
-- 친구가 막힌 상황: [학생 작성]
-- 내가 가장 먼저 고치고 싶은 것: [학생 작성]
-
-가장 먼저 고칠 부분에 대해 수정안을 제안해줘.
-수정이 필요한 이유와 예상되는 변화를 설명해줘.
-내가 승인하면 필요한 파일만 읽고 수정해줘.
-
-마지막으로 GitHub와 Vercel로 배포하는 방법을 알려줘.
-배포를 직접 할 수 없다면 그 사실과 내가 해야 할 일을 설명해줘.`
-    }
   ],
   night: [
     {
@@ -320,7 +303,7 @@ const SHARED_DATA = null;
 // END_SHARED_DATA
 const sourceURL = document.currentScript?.src || 'script.js';
 const baseData = SHARED_DATA || { version: 1, revision: 'original', groups: [
-  { id: 'free', title: '자유양식', description: '내 아이디어로 시작하기', steps: templates.free },
+  { id: 'free', title: '내가 기획한 게임', description: '직접 정한 주제와 규칙으로 만들기', steps: templates.free },
   { id: 'night', title: '야간배송', description: '기본 이야기를 바탕으로 만들기', steps: templates.night }
 ] };
 const STORAGE_KEY = 'prompt-kit-editor-v1';
@@ -345,6 +328,13 @@ try {
   const local = JSON.parse(localStorage.getItem(STORAGE_KEY));
   if (local && local.baseRevision === baseData.revision) groups = validateData(local).groups;
 } catch (_) { storageAvailable = false; }
+// 이전 브라우저 저장에도 삭제한 기본 단계와 새 이름을 반영합니다.
+for (const group of groups) {
+  if (group.id === 'free') {
+    group.steps = group.steps.filter(step => step.title !== '친구의 의견으로 개선하기');
+    if (group.title === '자유양식') group.title = '내가 기획한 게임';
+  }
+}
 const state = { mode: groups[0].id, steps: Object.create(null) };
 let editorContext = null;
 function currentGroup() { return groups.find(group => group.id === state.mode); }

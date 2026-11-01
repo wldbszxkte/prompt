@@ -3,21 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f7f8f4">
+  <meta name="theme-color" content="#ffffff">
   <meta name="description" content="학생들이 빈칸을 채워 만드는 웹게임. 자유양식과 야간배송의 단계별 프롬프트를 복사하세요.">
   <title>게임 만들기 · 프롬프트 모음</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="script.js" defer></script>
+  <link rel="stylesheet" href="style.css?v=4">
+  <script src="script.js?v=4" defer></script>
 </head>
 <body>
   <header class="header"><a class="brand" href="./"><span class="brand-icon" aria-hidden="true">↗</span>게임 만들기<span class="brand-sub">PROMPT KIT</span></a><span class="student-tag">프로그래밍 동아리 · 학생용</span></header>
   <main>
-    <section class="intro"><div><p class="eyebrow">아이디어에서 첫 번째 게임까지</p><h1>내 게임을 만드는<br><span>첫 문장.</span></h1><p class="description">단계별 프롬프트를 복사하고, <strong>[학생 작성]</strong>을 내 생각으로 채워보세요.<br>AI의 결과를 직접 확인한 뒤 다음 단계로 넘어가면 됩니다.</p></div><div class="intro-note"><span class="note-number">01 — 03</span><p>복사하고<br>빈칸을 채우고<br><b>직접 플레이하기.</b></p></div></section>
-    <details class="management"><summary>양식 추가·수정 및 공유</summary><div class="management-buttons"><button id="addGroup">+ 새 양식</button><button id="editGroup">양식 이름 수정</button><button id="addStep">+ 단계 추가</button><button id="editStep">현재 단계 수정</button><button id="exportScript">공유용 script.js 받기</button><button id="exportData">백업 저장</button><button id="importData">백업 불러오기</button></div><p id="storageNotice">편집 내용은 이 브라우저에 저장됩니다. 학생들에게도 반영하려면 ‘공유용 script.js 받기’로 받은 파일을 GitHub의 script.js와 교체하세요. 서버에 자동으로 저장되지는 않습니다.</p><input id="importFile" type="file" accept=".json,application/json" hidden></details>
+    <section class="intro"><h1>게임 만들기 프롬프트</h1><p>만들 방식을 고르고, 필요한 단계의 프롬프트를 복사하세요. [학생 작성]은 직접 채워주세요.</p></section>
+    <div class="category-heading"><strong>어떤 게임을 만들까요?</strong><button id="addGroup">+ 다른 게임 양식 추가</button></div>
     <div id="modeTabs" class="mode-tabs" role="tablist" aria-label="게임 기획 방식"></div>
-    <section class="workspace"><aside class="step-sidebar"><div class="sidebar-label">STEPS <span id="stepCount">07</span></div><nav id="stepList" aria-label="프롬프트 단계"></nav><div class="sidebar-tip"><span aria-hidden="true">↳</span><p>한 단계씩 같은 AI 채팅에<br>이어서 붙여넣으세요.</p></div></aside>
-      <section id="promptPanel" class="prompt-panel" role="tabpanel" aria-labelledby="tab-free"><div class="panel-heading"><div><p class="step-eyebrow" id="stepEyebrow"></p><h2 id="stepTitle"></h2><p id="stepDescription"></p></div><button class="copy-button" id="copyButton"><span aria-hidden="true">▣</span><span id="copyLabel">프롬프트 복사</span></button></div><div class="prompt-wrap"><div class="prompt-label"><span><i aria-hidden="true"></i>복사할 프롬프트</span><span>빈칸은 붙여넣은 뒤 작성하세요</span></div><textarea id="promptText" readonly spellcheck="false" aria-label="현재 단계 프롬프트"></textarea></div><div class="check-note"><span class="check-icon" aria-hidden="true">✓</span><div><strong>다음 단계로 가기 전</strong><p id="checkpoint"></p></div></div><div class="step-controls"><button id="prevButton" class="secondary-button">← 이전 단계</button><span id="pageNumber"></span><button id="nextButton" class="next-button">다음 단계 →</button></div></section>
+    <div class="category-tools"><span>선택한 양식의 단계가 아래에 표시됩니다.</span><button id="editGroup">선택한 양식 이름 수정</button></div>
+    <section class="workspace"><aside class="step-sidebar"><div class="sidebar-label">STEPS <span id="stepCount">07</span></div><nav id="stepList" aria-label="프롬프트 단계"></nav><button id="addStep" class="add-step">+ 이 양식에 단계 추가</button><div class="sidebar-tip"><span aria-hidden="true">↳</span><p>한 단계씩 같은 AI 채팅에<br>이어서 붙여넣으세요.</p></div></aside>
+      <section id="promptPanel" class="prompt-panel" role="tabpanel" aria-labelledby="tab-free"><div class="panel-heading"><div><p class="step-eyebrow" id="stepEyebrow"></p><h2 id="stepTitle"></h2><p id="stepDescription"></p></div><div class="prompt-actions"><button id="editStep">현재 단계 수정</button><button class="copy-button" id="copyButton"><span aria-hidden="true">▣</span><span id="copyLabel">프롬프트 복사</span></button></div></div><div class="prompt-wrap"><div class="prompt-label"><span><i aria-hidden="true"></i>복사할 프롬프트</span><span>빈칸은 붙여넣은 뒤 작성하세요</span></div><textarea id="promptText" readonly spellcheck="false" aria-label="현재 단계 프롬프트"></textarea></div><div class="check-note"><span class="check-icon" aria-hidden="true">✓</span><div><strong>다음 단계로 가기 전</strong><p id="checkpoint"></p></div></div><div class="step-controls"><button id="prevButton" class="secondary-button">← 이전 단계</button><span id="pageNumber"></span><button id="nextButton" class="next-button">다음 단계 →</button></div></section>
     </section>
+    <details class="management"><summary>수정 내용 공유·백업</summary><div class="management-buttons"><button id="exportScript">공유용 script.js 다운로드</button><button id="exportData">백업 파일 저장</button><button id="importData">백업 파일 불러오기</button></div><p id="storageNotice">수정은 현재 브라우저에 저장됩니다. 모두에게 공유하려면 공유용 script.js를 받아 GitHub 파일과 교체하세요.</p><input id="importFile" type="file" accept=".json,application/json" hidden></details>
     <footer class="footer"><p>내가 결정하고, AI와 만들고, 직접 확인하기.</p><button id="copyAllButton">이 양식의 전체 단계 복사 ↗</button></footer>
   </main>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
